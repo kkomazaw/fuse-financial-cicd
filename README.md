@@ -235,7 +235,7 @@ Here is where we tell Apicast where to look for our APIs and how the APIs can be
 
 - Private Base URL: **http://fisgateway-service-stable:8080**
 - Public Basic URL: **http://apicast-fisdemoprod.<OPENSHIFT_HOST>**
-- メトリクス設定のセクションで以下の3つを追加します。
+- MAPPING RULESのセクションで以下の3つを追加します。
 	- GET /demos/sourcegateway/balance
 	- GET /demos/sourcegateway/profile
 	- POST /demos/sourcegateway/transfer
