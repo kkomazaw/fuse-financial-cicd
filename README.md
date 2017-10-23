@@ -1,60 +1,55 @@
-# FIS 2.0 Financial Agile Integration Demo
+# Fuse Integration Services 2.0を使った金融系アジャイル・インテグレーションデモ
 
-This Financial demo is a simple gateway that redirect the incoming request of
- - Checking balance
- - Transfer money
-to different money source, one pass to a traditional banking microservice app, which interact directly with MySQL database, and pass the bitcoin request to the other microservice application connecting to a mock-blockchain through messaging broker.
+このデモはシンプルなゲートウェイサービスが残高照会と送金のリクエストをバックエンドのシステムへ転送します。
+バックエンドには、MySQLデータベースに接続する従来型の銀行システムのマイクロサービスアプリケーションと、メッセージングブローカーを経由してモックアップのブロックチェーンに接続するビットコイン用のマイクロサービスアプリケーションがあります。
 
 ![alt text](images/outline.png "outline")
 
-There are many aspect with this demo,
-1. Source to Image (S2i) build and deploy process
-2. Building a pipeline to support automated CI/CD
-3. Exposing RESTAPI using Camel, and export API doc to swagger
-4. Manage API through 3scale API management
-5. Running Hystrix among APIs
+このデモのポイントは以下の通りです。
+1. Source to Image (S2i) によるビルドとデプロイのプロセス
+2. パイプラインによる自動化されたCI/CD
+3. CamelによるREST APIの実装とSwaggerによるAPIドキュメントの生成
+4. 3scale API managementによるAPIの管理
+5. HystrixによるAPIの実装
 
+まずは、アプリケーションをセットアップしましょう。
 
-but first, let's start with setting up the application.
-
-## Setting up DEV and UAT Environemnt
+## DEVおよびUAT環境の設定
 ***Install OpenShift Container Platform 3.5 in [CDK 3.0](https://developers.redhat.com/products/cdk/overview/)***
 
-Download the git repository by either forking it, or simply cloning it.
-(My suggesting is to fork it, if you want to play with the code)
+このリポジトリをforkして、ローカルにダウンロードしてください。
 
 ```
-git https://github.com/YOUR_RPEO/fuse-financial-cicd.git
+git https://github.com/<あなたのリポジトリ>/fuse-financial-cicd.git
 ```
 
-Start up your OpenShift environment by running
+OpenShiftを起動してください。
 
 ```
-minishift start --username <USERNAME> --password <PASSWORD>
+minishift start --skip-registration
 ```
 
-
-And log back in as developer, install the messaging template that we will use later in the process.
+developerでログインし、このデモで必要なメッセージング用のテンプレートをインストールします。
 
 
 ```
 oc login -u developer
 
-# Create DEV/UAT deployment pace
+# DEV/UATデプロイ用のプロジェクトを作成する
 oc new-project fisdemo --display-name="Fuse Banking Demo - Dev and UAT" --description="Development and UAT environment for Agile Integration Banking Demo - Power by Red Hat Fuse"
 
-# Import AMQ image for later
+# AMQイメージをインポートする
 oc import-image amq62-openshift --from=registry.access.redhat.com/jboss-amq-6/amq62-openshift --confirm
 
 cd support
-# Create template for AMQ
+# AMQのテンプレートを作成する
 oc create -f projecttemplates/amq62-openshift.json
 
 ```
 
-## Setup MySql database, AMQ broker and Jenkins 
+## MySqlデータベース、AMQブローカー、Jenkinsをセットアップする 
 
-You can either setup all of them using GUI on OpenShift console, or using command line as follows
+以下のコマンドラインを実行して、これらのセットアップを実行します。（OpenShiftコンソールから作成しても構いません）
 
 
 ```
@@ -66,23 +61,21 @@ oc new-app --template=amq62-basic --param=MQ_USERNAME=admin --param=MQ_PASSWORD=
 
 ```
 
-## Pushing application to OpenShift
-For the two microservice
- - Traditional Bankling
- - Bitcoin Gateway
-We will using the Binary S2i to upload the application.
-Go to your traditional banking account project folder, and run
+## アプリケーションをOpenShiftにプッシュする
+これらの2つのマイクロサービスをアップロードするために、バイナリS2i(Source to Image)を使います。
+ - 従来型銀行システム
+ - ビットコインゲートウェイ
 
+ まずは従来型銀行システムのプロジェクトフォルダーに移動して以下を実行します。
 
 ```
 cd ..
 cd fisdemoaccount
-mvn fabric8:deploy -Dmysql-service-username=dbuser -Dmysql-service-password=password
+mvn fabric8:deploy -Dmysql-service-username=dbuser -Dmysql-service-password=password -DskipTests=true
 ```
 
 
-Do the same to the bitcoin gateway under it's project folder
-
+次にビットコインゲートウェイのプロジェクトフォルダーに移動して以下を実行します。
 
 ```
 cd ..
@@ -90,7 +83,7 @@ cd fisdemoblockchain
 mvn fabric8:deploy
 ```
 
-After successfully install the application, it's time to deploy the API Gateway. This time, we are going to build a pipeline, that goes through and automated the CI/CD process from staging to UAT.
+次にAPIゲートウェイサービスをデプロイします。今回はパイプラインを構築して、ステージングからUAT環境へCI/CDプロセスを自動化してみます。
 
 ```
 cd ..
@@ -98,9 +91,8 @@ oc process -f support/projecttemplates/template-uat.yml | oc create -f -
 oc start-build fisgateway-service
 ```
 
-Congradulations! You can now start playing with the demo!
-And here are some of the ways you can play with it!
-In your browser test the following links
+これで出来上がりです。それでは早速デモを実行してみましょう。ブラウザから以下のRESTサービスを呼び出してみてください。
+
 
 ```
 http://fisgateway-service-fisdemo.<OPENSHIFT_HOST>/demos/sourcegateway/balance/234567?moneysource=bitcoin
@@ -110,9 +102,9 @@ http://fisgateway-service-fisdemo.<OPENSHIFT_HOST>/demos/sourcegateway/balance/2
 [![Installing UAT and DEV project video](images/video01-0.png)](https://vimeo.com/219952887 "Fuse Banking Agile Integration Demo - Installing UAT and DEV project")
 
 
-## Starting up Banking GUI
+## インターネットバンキング画面を実行する
 
-If you want something fancy, try installing the GUI for the application.
+もう少し派手にしたい場合は、GUIアプリケーションをインストールしてみましょう。
 
 ![alt text](images/bankinggui.png "Banking GUI")
 
@@ -125,13 +117,13 @@ oc new-app fisdemogui
 oc expose svc fisdemogui
 ```
 
-In your browser http://fisdemogui-fisdemogui.<OPENSHIFT_HOST>/
-Once the application is running, set the your API IP Address to *fisgateway-service-fisdemo.<OPENSHIFT_HOST>* and play around with it.
+ブラウザで http://fisdemogui-fisdemogui.<OPENSHIFT_HOST>.nip.io を開きます。
+画面上のAPI Hostに *fisgateway-service-fisdemo.<OPENSHIFT_HOST>* を入力して実行してください。
 
 [![Installing Banking GUI](images/video02-0.png)](https://vimeo.com/219955921 "Fuse Banking Agile Integration Demo - Installing Banking GUI")
 
-## Setting Up Production Environment
-Create a Production project for FISDEMO
+## 本番環境をセットアップする
+それでは次に本番用のプロジェクトを作成します。
 Add setup the environment including supporting microservices and configurations (deployment configs/service/route) in production
 
 ```
@@ -140,9 +132,9 @@ cd support
 ```
 
 
-## API resiliency with Hystrix
+## Hystrixを使ってAPIレジリエンスを高める
 
-Spin up the Hystrix dashboard and Turbine server using the provided kubeflix.json template
+提供されているkubeflix.jsonテンプレートを使って、HystrixダッシュボードとTurbineサーバーを起動します。
 
 ```
 oc process -f kubeflix.yml | oc create -f -
@@ -151,56 +143,59 @@ oc process -f kubeflix.yml | oc create -f -
 [![Installing PROD project video](images/video03-0.png)](https://vimeo.com/219957939 "Fuse Banking Agile Integration Demo - Installing PROD project")
 
 
-## Setting up 3scale API Management
-There are two ways for you to setup 3scale
+## 3scale API Managementをセットアップする
+3scaleのセットアップの２通りの方法があります。
 
-1. **Option ONE:** (RECOMMENDED) Sign up for a 45 day trial version online, go to
+1. **オプション1:** (推奨) 45日間のトライアルバージョン（オンライン版）に登録する
 ```
 https://www.3scale.net/signup/
 ```
-You will receive a administration domain to manage APIs.
+登録後、管理用ドメインを受け取ることができます。
 
-   **Option TWO:** Spin up local 3scale environment
+   **オプション2:** ローカルに3scale環境をセットアップする
 
-   **WARNING!!! You need at LEAST 16 GB of memory assgined to CDK**
+   **注意!!! CDKのために少なくとも16GBのメモリが必要です**
 
-   A.  Create a project
+   A.  プロジェクトを作成する
 
 	```
 	oc new-project threescaleonprem
 	```
-   B.  Setup persistence volume (if you are running with CDK V3/Minishift V1, this is optional)
+
+   B.  永続化ボリュームをセットアップする（CDK V3/Minishift V1を使用している場合、この操作はオプションです)
 	```
-	oc new-app -f support/amptemplates/pv.yml 	```
-   C.  Install 3scale into the project by excuting following command. The WILDCARD_DOMAIN parameter set to the domain of the OpenShift for your CDK:
+	oc new-app -f support/amptemplates/pv.yml
+	```
+
+   C.  3scaleを以下のコマンドでインストールする。WILDCARD_DOMAIN パラメータはあなたのOpenShiftにおけるドメインとなります。
 
 	```
 	oc new-app -f support/amptemplates/amp.yml --param WILDCARD_DOMAIN=<WILDCARD_DOMAIN>
 	```
 
-   For detail installation, please visit the official installation page.
+   詳細は公式のドキュメントをご参照ください。
 
-2. Retreive Access token
+2. アクセストークンを取得する
 
-	**Option ONE:**
+	**オプション1:**
 
-	A. In admin console, top right hand corner, select *Personal Settings*, click on Tokens on the top tab, and click on **Add Access Token**.
+	A. 管理者コンソールの上部右端にある、 *Personal Settings* を選択し、タブにある、Tokens をクリックします。さらに、 **Add Access Token** をクリックしてください。
 
-	B. Create the token by setting the following information
+	B. 以下の情報を設定してトークンを作成します。
 
 	- **Name**: demomgmttoken
 	- **Scopes**: Account Management API
 	- **Permission**: Read & Write
 
-	Rember the generated access token and don't lose it!
+	生成されたアクセストークンを安全な場所に記録します。
 
 
-	**Option TWO:**
+	**オプション2:**
 
-	After successfully installing 3scale backend system on OpenShift, should be provided as part of the result output on the execution console.
+	正常に3scaleをOpenShiftにインストールした際、コンソール上にてアクセストークンが出力されます。
 
 
-3. Configure 3scale setting, run following script along with your credentials to setup 3scale
+3. 先ほど取得したアクセストークンを使用して以下のスクリプトを実行することで、3scaleの設定を行います。
 
 	```
 	cd threescalesetup
@@ -210,7 +205,7 @@ You will receive a administration domain to manage APIs.
 	```
 	![alt text](images/threescaleapiconfig.png "3scale configuration")
 
-4. Setup accounts to access the API service.
+4. APIサービスにアクセスするアカウントをセットアップします。
 
 	```
 	cd threescalesetup
@@ -219,7 +214,7 @@ You will receive a administration domain to manage APIs.
 	```
 
 
-5. Install APICast to UAT and PROD projects, with your access token and 3scale admin domain name
+5. あなたのアクセストークンとドメイン名を指定して、APICastをUATおよびPRODプロジェクトにインストールします。
 
 	```
 	oc project fisdemoprod
@@ -230,17 +225,17 @@ You will receive a administration domain to manage APIs.
 
 	![alt text](images/threescaleinstall.png "3scale install")
 
-6. Update 3scale Integration configuration address
+6. 3scaleのIntegration設定画面でエンドポイントのアドレスを更新します。
 
-	Now, these setups can only be set manually, go to your 3scale admin page, login, Select **API** tab on top, and click onto *Fuse Financial Agile Integration Demo Service*. On the left tabs, choose **Integration**, and delete **edit Apicast Configuration**
+	これらの設定は手動で行う必要があります。3scaleの管理画面にログインし、 **API** タブを選択します。 *Fuse Financial Agile Integration Demo Service* をクリックし、左側のタブより **Integration** を選択します。 **edit Apicast Configuration** を削除します。
 
 ![alt text](images/threescaleapicastconfigmenu.png "3scale APICast Config")
 
 Here is where we tell Apicast where to look for our APIs and how the APIs can be accessed.
 
-- Set Private Base URL to : **http://fisgateway-service-stable:8080**
-- Set both your Public Basic URL to : **http://apicast-fisdemoprod.<OPENSHIFT_HOST>**
-- Set the three API endpoints accrodingly:
+- Private Base URL: **http://fisgateway-service-stable:8080**
+- Public Basic URL: **http://apicast-fisdemoprod.<OPENSHIFT_HOST>**
+- メトリクス設定のセクションで以下の3つを追加します。
 	- GET /demos/sourcegateway/balance
 	- GET /demos/sourcegateway/profile
 	- POST /demos/sourcegateway/transfer
@@ -249,27 +244,27 @@ Here is where we tell Apicast where to look for our APIs and how the APIs can be
 
 [![Setup 3scale API management video](images/video04-0.png)](https://vimeo.com/220360925 "Fuse Banking Agile Integration Demo - Setup 3scale API management")
 
-## CI/CD across integration solution
+## CI/CD をセットアップする
 
-### IMPORTANT!!! Please make sure you have 3scale account setup Following CI/CD A-B Testing pipeline to work.
+### 重要!!! 以下のCI/CD A/Bテストパイプラインを実行するためには、3scaleのアカウント設定が正常に設定されている必要があります。
 
 ![alt text](images/cicd.png "CI/CD pipelines")
 
 
-Create a project to all pipelines
+パイプライン用のプロジェクトを作成します。
 
 ```
 oc new-project fisdemocicd --display-name="Fuse Banking Pipeline" --description="All CI/CD Pipeline for Banking Demo"
 ```
 
-Grant access to cicd project user so it can operate on UAT and PROD env
+cicdプロジェクトユーザーにUATとPROD環境を操作できるようアクセス権限を付与します。
 
 ```
 oc policy add-role-to-group edit system:serviceaccounts:fisdemocicd -n fisdemo
 oc policy add-role-to-group edit system:serviceaccounts:fisdemocicd -n fisdemoprod
 ```
 
-Install all three pipelines
+3つのパイプラインをインストールします。
 
 ```
 oc create -f support/pipelinetemplates/pipeline-uat.yml
@@ -295,23 +290,16 @@ oc new-app pipeline-allprod \
 --param=OPENSHIFT_HOST=<OPENSHIFT_HOST>
 ```
 
-The Banking pipeline project includes 3 pipelines demonstrate the possible flow of an integration application of Fuse.
+このデモパイプラインプロジェクトは、Fuseによる統合アプリケーションを構築するための3つのパイプラインが含まれています。
 
-A. The pre-built UAT pipeline builds the image from SCM (github). and deploy a testing instance onto the platform. Then a pre-UAT test is done by a QA (you), after verification, you can choose to reject the change or promote it to UAT, by tagging the image with uatready flag. When promoted, the pipeline will deploy the uat tagged image on openshift, with UAT route linked to it.
+A. 事前構築済みUATパイプラインは、イメージをSCM (github)から構築し、テストインスタンスをデプロイします。そしてUAT移行前のテストをQAにより実施し、検証後、UAT環境に移行可能かどうかを選択します。（イメージにuatreadyタグをつけることによって） UAT環境に昇格すると、パイプラインはタグづけされたイメージをUATイメージとしてデプロイし、アクセス可能なアドレス（routeと呼びます）を付与します。
 
-B. A/B Testing pipeline will move UAT image from the UAT project to Production project by tagging and deploying the image, and allocate 30% of traffic to the new service and 70% to existing stable service. Also updates all traffics from API management layer to 25 calls per minutes.
+B. A/Bテストパイプラインは、UATプロジェクトにあるUATイメージを本番プロジェクトに移動させます。そしてトラフィックの30%を新しいバージョンに、残りの70%を既存の安定バージョンに振り分けます。さらにAPI管理層（3scale)のトラフィックを毎分25コールに更新します。
 
-C. Ready for full release. The all production pipeline will do the rolling update, old service will be replace by the new service as now become the stable version. All traffic will then redirect to the stable new version of running instance.
+C. フルリリースの準備ができました。本番パイプラインは、ローリングアップデートを実施して、古いサービスを新しいサービスに置き換えていきます。新しいサービスは安定バージョンとなります。さらにAPI管理層（3scale)のトラフィックを毎分50コールに更新します。
 
 ![alt text](images/allpipelines.png "allpipelines")
 
 [![Setup CI/CD pipelines video](images/video05-0.png)](https://vimeo.com/220360925 "Fuse Banking Agile Integration Demo - Setup CI/CD pipelines")
 
-
-## Version update notes, and TODOs
-- V2 . REMOVE UAT pipeline from UAT project into the pipeline Project
-- V2 . Added Hystrix
-- V2 . Added 3scale API management
-- V2 . Added CICD for Production
-- V2 . Added Banking GUI
-- TODO: Configmaps and secrets
+以上でデモは完了です。お疲れ様でした。
